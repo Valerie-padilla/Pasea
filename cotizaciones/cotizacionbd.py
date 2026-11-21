@@ -40,6 +40,15 @@ class Cotizaciones():
             return True
         except:
             return False
+    @staticmethod
+    def consultarCot ():
+        try:
+            sql =   "SELECT c.numCotizacion,cl.nombre AS cliente, c.total, c.descripcion, c.ordenCompra FROM cotizaciones AS c LEFT JOIN clientes AS cl ON c.id_cliente = cl.id;"
+            cursor.execute(sql,)
+            return cursor.fetchall()
+        except:
+            return False
+  
     def actualizar(self, id):
         try:
             
@@ -50,6 +59,7 @@ class Cotizaciones():
             return True
         except Exception as e:
             print(f"Error al actualizar: {e}")
+            
             return False
        
     @property
@@ -101,12 +111,3 @@ class Cotizaciones():
     @trabajadores.setter
     def tiempo (self,trabajadores):
         self._trabajadores = trabajadores
-
-
-
-
-
-
-
-
-        
