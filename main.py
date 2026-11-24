@@ -6,6 +6,7 @@ from materiales import materialesbd
 from proyectos import proyectosbd
 from trabajadores import trabajadoresbd
 from trabajadores.trabajadores import TrabajadoresMVC
+from materiales.materilaes import MaterialesMVC
 import tkinter as tk
 from tkinter import Tk,Label,Entry,Button
 from tkinter import messagebox
@@ -82,6 +83,8 @@ class App:
             accion = self.irAClientes
           elif texto == "Cotizaciones":
                       accion = self.irACotizacionMVC
+          elif texto == "Validacion":
+              accion = self.irACotizacionMVC
           else:
             accion = lambda t=texto: print(f"Módulo de {t} en construcción")
 
@@ -98,6 +101,8 @@ class App:
         TrabajadoresMVC(self.ventana, self.crear_menu_superior)
     def irACotizacionMVC(self):
         CotizacionesMVC(self.ventana, self.crear_menu_superior)
+    def irAValidacion(self):
+        MaterialesMVC(self.ventana, self.crear_menu_superior, None, None, None)
     ##controladores
 
     
