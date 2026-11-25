@@ -7,17 +7,144 @@ from tkcalendar import DateEntry
 from cotizaciones import cotizacionbd
 from materiales import materialesbd
 class MaterialesMVC():
-    def __init__(self, ventana, funcionMenu,tipo):
+    def __init__(self, ventana, funcionMenu, cotizacion, tipo, id_mat):
         self.ventana = ventana
         self.crearMenuSuperior = funcionMenu
         self.tipo = tipo
         self.ventana.geometry("800x600")
+        self.cotizacion = cotizacion
+        self.id_mat = id_mat
         if self.tipo == "agregar":
             self.agregarMaterialesView()
+        elif self.tipo == "editar":
+            self.editarMaterialesView()
+        elif self.tipo == "validar":
+            self.mostrarValidacionesview()
+        
 
     def borrarPantalla(self):
         for widget in self.ventana.winfo_children():
             widget.destroy()
+    def regresarACotizaciones(self):
+        from cotizaciones.cotizacion import CotizacionesMVC
+        CotizacionesMVC(self.ventana, self.crearMenuSuperior)
+    def ejecutarTodoIns(self):
+        self.agregarMaterialesController()
+        self.regresarACotizaciones()
+
+    
+    def ejecutarTodobor(self):
+        respuesta = messagebox.askyesno("advertencia", "seguro que deseas actualizar?")
+        if respuesta:
+            self.editarMaterialesController()
+            self.borrarPantalla()
+            self.regresarACotizaciones()
+        else:
+            self.borrarPantalla()
+            self.regresarACotizaciones()
+    def ejecutarTodoAct(self):
+        respuesta = messagebox.askyesno("advertencia", "seguro que deseas actualizar?")
+        if respuesta:
+            self.editarMaterialesController()
+            self.borrarPantalla()
+            self.regresarACotizaciones()
+        else:
+            self.borrarPantalla()
+            self.regresarACotizaciones()
+
+    def mostrarValidacionesview(self):
+        self.borrarPantalla()
+        contenedor = tk.Frame(self.ventana)
+        contenedor.pack(fill="both", expand=True)
+
+        self.crearMenuSuperior(contenedor)
+        frame_principal = tk.Frame(contenedor)
+        frame_principal.pack(fill="both", expand=True, padx=10, pady=10)
+        frame_principal.grid_columnconfigure(0, weight=1, uniform="mitad")
+        frame_principal.grid_columnconfigure(1, weight=1, uniform="mitad")
+        frame_principal.grid_rowconfigure(0, weight=1)
+
+        frame_izq = tk.Frame(frame_principal)
+        frame_izq.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        datos = self.consultarCotID() 
+        Label(frame_izq, text="ingrese el id de la cotzacion", font=("Arial", 12, "bold")).pack(anchor="w", pady=5)
+        self.idCot = ttk.Combobox(frame_izq, values=datos, state="readonly")
+        self.idCot.pack(fill="x", pady=2, padx=10)
+        self.idCot.current(0)      
+
+    
+        
+        # Botones de Cotizaciones
+        framesBtnIzq = tk.Frame(frame_izq)
+        framesBtnIzq.pack(fill="x", pady=10)
+        
+
+        self.btnAplicar = Button(framesBtnIzq, text="aplicar", command=self.aplicarCot)
+        self.btnAplicar.pack(side="right", padx=5)
+        self.btnaprobar = Button(framesBtnIzq, text="aprobar", command=self.aprobarCot)
+        self.btnaprobar.pack(pady=5)
+        self.btnaprobar.config(state=DISABLED)
+
+
+#---------------------------------- MATRIALES DERECHA--------------------------------
+        frame_der = tk.Frame(frame_principal)
+        frame_der.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+
+        Label(frame_der, text="materiales", font=("Arial", 12, "bold")).pack(anchor="w", pady=5)
+
+        frame_tabla_mat = tk.Frame(frame_der)
+        frame_tabla_mat.pack(fill="both", expand=True, pady=5)
+
+        columnas_mat = ("ID", "Material", "Descrip.", "Can.", "Prec", "Total", "estatus")
+        self.tabla_mat = ttk.Treeview(frame_tabla_mat, columns=columnas_mat, show="headings")
+
+        for col in columnas_mat:
+            self.tabla_mat.heading(col, text=col)
+            self.tabla_mat.column(col, width=65)
+
+        self.tabla_mat.pack(side="top", fill="both", expand=True)
+        self.tabla_mat.bind("<<TreeviewSelect>>", self.alSeleccionaraplicar)
+
+        # Botones de Materiales
+        frame_botones_mat = tk.Frame(frame_der)
+        frame_botones_mat.pack(fill="x", pady=10)
+
+
+
+        self.btnCambiarEstatus = Button(frame_botones_mat, text="comprar", command=self.cambiarEstatus)
+        self.btnCambiarEstatus.pack(side="right", padx=5)
+        self.btnCambiarEstatus.config(state=DISABLED)
+        
+
+
+
+    def aplicarCot(self):
+        self.btnaprobar.config(state=tk.NORMAL)
+
+        filas = self.materialesPorCotizacion(self.idCot.get())
+        print(filas)
+        for fila in self.tabla_mat.get_children():
+            self.tabla_mat.delete(fila)
+        if filas:
+            for item in filas:
+                self.tabla_mat.insert("", tk.END, values=item)
+        
+
+    def alSeleccionaraplicar(self, event):
+        seleccion = event.widget.selection()
+        if seleccion:
+            valores = event.widget.item(seleccion[0], "values")
+            self.id_mat_seleccionado = valores[0]
+            self.btnCambiarEstatus.config(state="normal")
+
+
+    def aprobarCot(self):
+        pregunta = messagebox.askyesno("advertencia", "seguro que deseas borrar?")
+        if pregunta:
+            self.cambiarEstatusCot (self.idCot.get())
+            self.mostrarValidacionesview()
+        else:
+            self.mostrarValidacionesview()    
 
     def agregarMaterialesView (self):
         self.borrarPantalla()
@@ -32,8 +159,7 @@ class MaterialesMVC():
         frame_form = tk.Frame(canvas)
         frame_form.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=frame_form, anchor="nw")
         canvas.configure(yscrollcommand=barra.set)
         canvas.pack(side="left", fill="both", expand=True)
@@ -57,27 +183,150 @@ class MaterialesMVC():
         Label(frame_form, text="ingrese el precio del material").pack(anchor="w", pady=2, padx=10)
         self.precio = Entry(frame_form, width=40)
         self.precio.pack(fill="x", pady=2, padx=10)
-        
+        Label(frame_form, text="ingrese la cantidad del material").pack(anchor="w", pady=2, padx=10)
+        self.cantidad = Entry(frame_form, width=40)
+        self.cantidad.pack(fill="x", pady=2, padx=10)
 
-        datos = revisadosDatos()
-        Label(self.ventana, text="ingresar el id del coche que deseas borrar").pack(pady=10)
-        datos = self.revisarId()
-        self.idBorrar = ttk.Combobox(self.ventana,values=datos,state="readonly")
-        self.idBorrar.pack(pady=5)
-        self.idBorrar.current(0)
+
         
         frame_botones = tk.Frame(frame_form)
         frame_botones.pack(pady=15)
-        Button(frame_botones, text='agregar', command=self.ejecutarTodoIns).pack(side="left", padx=5)
-        Button(frame_botones, text='::Regresar::', command=self.mostrarClientesView).pack(side="left", padx=5)
+        Button(frame_botones, text='agregar', command= self.ejecutarTodoIns).pack(side="left", padx=5)
+        Button(frame_botones, text='::Regresar::', command=self.regresarACotizaciones).pack(side="left", padx=5)
 
 
 
+        #_---------------------------- metodo editar --------------------------------
+    def editarMaterialesView (self):
+        self.borrarPantalla()
+        contenedor = tk.Frame(self.ventana)
+        contenedor.pack(fill="both", expand=True)
+        self.crearMenuSuperior(contenedor)
+        canvas = tk.Canvas(contenedor)
+        barra = tk.Scrollbar(contenedor, orient="vertical", command=canvas.yview)
+        frame_form = tk.Frame(canvas)
+        frame_form.bind("<Configure>",lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=frame_form, anchor="nw")
+        canvas.configure(yscrollcommand=barra.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        barra.pack(side="right", fill="y")
 
 
+        Label(frame_form, text="nombre").pack(anchor="w", pady=2, padx=10)
+        self.nombreAct = Entry(frame_form, width=40)
+        self.nombreAct.pack(fill="x", pady=2, padx=10)
+        
+        Label(frame_form, text="descripcion").pack(anchor="w", pady=2, padx=10)
+        self.descripcionAct = Entry(frame_form, width=40)
+        self.descripcionAct.pack(fill="x", pady=2, padx=10)
+        
+        Label(frame_form, text="medida").pack(anchor="w", pady=2, padx=10)
+        self.medidaAct = Entry(frame_form, width=40)
+        self.medidaAct.pack(fill="x", pady=2, padx=10)
+        
+        Label(frame_form, text="precio").pack(anchor="w", pady=2, padx=10)
+        self.precioAct = Entry(frame_form, width=40)
+        self.precioAct.pack(fill="x", pady=2, padx=10)
+        
+        Label(frame_form, text="cantidad").pack(anchor="w", pady=2, padx=10)
+        self.cantidadAct = Entry(frame_form, width=40)
+        self.cantidadAct.pack(fill="x", pady=2, padx=10)
+        
+        
+        frame_botones = tk.Frame(frame_form)
+        frame_botones.pack(pady=15)
+        Button(frame_botones, text='Borrar', command=self.ejecutarTodobor).pack(side="left", padx=5)
+        Button(frame_botones, text='Actualizar', command=self.ejecutarTodoAct).pack(side="left", padx=5)
+        Button(frame_botones, text='Regresar', command=self.regresarACotizaciones).pack(side="left", padx=5)
+        material = self.buscarMaterialesPorId(self.id_mat)
+        if material:
+          self.nombreAct.delete(0, "end")
+          self.nombreAct.insert(0, material[1])
+          self.descripcionAct.delete(0, "end")
+          self.descripcionAct.insert(0, material[2])
+          self.medidaAct.delete(0, "end")
+          self.medidaAct.insert(0, material[3])
+          self.precioAct.delete(0, "end")
+          self.precioAct.insert(0, material[4])
+          self.cantidadAct.delete(0, "end")
+          self.cantidadAct.insert(0, material[5])
+    
+
+
+
+    def respuesta_sql(self, respuesta):
+        if respuesta:
+            messagebox.showinfo(title="::EXITO::", message="Accion como yo ...exitosa")
+        else:
+            messagebox.showerror(title='VERIFIQUE ', message="Esta accion no pudo realizarse con exito")
 
         #controladores
-        def revisadosDatos (self):
-            datos = materialesbd.MaterialesBD().obtenerDatos()
-            datosnuevos = [datos[0] + " " + datos[1]]
 
+
+    def agregarMaterialesController(self):
+        
+        nombre = self.nombre.get()
+        descripcion = self.descripcion.get()
+        medida = self.medida.get()
+        precio = self.precio.get()
+        cantidad = self.cantidad.get()
+        cotizacion = self.cotizacion
+
+        comprado = 0
+        materiales = (nombre, descripcion, medida, precio, cantidad,comprado, cotizacion)
+
+        if nombre and descripcion and medida and precio and cantidad is not None:
+            materiales = materialesbd.Materiales(*materiales)
+            respuesta = materiales.insertar()
+            
+        else:
+            respuesta = False
+        self.respuesta_sql(respuesta)
+        del materiales
+    def buscarMaterialesPorId (self, id_mat):  
+        material = materialesbd.Materiales.consultarPorID(id_mat)
+        return material
+
+    def materialesPorCotizacion(self, id_cot):
+        material = materialesbd.Materiales.matID(id_cot)
+        lista = []
+
+        if not material:
+            return lista
+
+        for fila in material:
+            if fila[6] == 0:
+                estatus = "No comprado"
+            elif fila[6] == 1:
+                estatus = "comprado"
+            
+            lista.append((fila[0], fila[1], fila[2], fila[3],fila[4],fila[5],estatus,))
+        return lista
+    def editarMaterialesController (self):
+        material1 = materialesbd.Materiales(self.nombreAct.get(), self.descripcionAct.get(), self.medidaAct.get(), self.precioAct.get(), self.cantidadAct.get(), "", "")
+        respuesta = material1.actualizar(self.id_mat)
+        self.respuesta_sql(respuesta)
+        del material1
+
+
+    def consultarCotID (self):
+        return materialesbd.Materiales.consultarCotId()
+
+    def cambiarEstatus (self):
+        #id_mat_seleccionado
+        
+        respuesta =  materialesbd.Materiales.marcarAceptada(self.id_mat_seleccionado)
+        self.respuesta_sql(respuesta)
+        filas = self.materialesPorCotizacion(self.idCot.get())
+        print(filas)
+        for fila in self.tabla_mat.get_children():
+            self.tabla_mat.delete(fila)
+        if filas:
+            for item in filas:
+                self.tabla_mat.insert("", tk.END, values=item)
+
+    def cambiarEstatusCot (self, idCotizacion):
+        respuesta = materialesbd.Materiales.cambiarAprobado(idCotizacion)
+        self.respuesta_sql(respuesta)
+
+            

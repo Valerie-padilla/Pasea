@@ -6,7 +6,7 @@ from clientes import clientesbd
 from tkcalendar import DateEntry
 from cotizaciones import cotizacionbd
 from materiales import materialesbd
-
+from datetime import date, datetime, timedelta
 from materiales.materilaes import MaterialesMVC
 
 class CotizacionesMVC():
@@ -19,9 +19,23 @@ class CotizacionesMVC():
         for widget in self.ventana.winfo_children():
             widget.destroy()
     ##par llamar y tener conexion con el modulo de materiales
-    def irAMaterialesMVC(self,tipo):
-        MaterialesMVC(self.ventana, self.crear_menu_superior,tipo)
-        
+    def irAMaterialesMVC(self,cotizacion_id, tipo, id_mat):
+        print("Tipo de acción:", tipo)
+        MaterialesMVC(self.ventana, self.crearMenuSuperior, cotizacion_id, tipo,id_mat)
+    def ejecutarTodoIns (self,datos,idcl,trabajadores,idTrabajadores):
+        self.agregarCotizacionController(datos,idcl,trabajadores,idTrabajadores)
+        self.borrarPantalla()
+        self.mostrarCotizacionesView()
+    def ejecutarTodoAct(self,datos,idcl,trabajadores,idTrabajadores):
+        respuesta = messagebox.askyesno("advertencia", "seguro que deseas actualizar?")
+        if respuesta:
+            self.editarCotizacionController(datos,idcl,trabajadores,idTrabajadores)
+            self.borrarPantalla()
+            self.mostrarCotizacionesView()
+        else:
+            self.borrarPantalla()
+            self.mostrarCotizacionesView()
+    
 
     def mostrarCotizacionesView(self):
         self.borrarPantalla()
@@ -64,12 +78,13 @@ class CotizacionesMVC():
         frame_botones_cot = tk.Frame(frame_izq)
         frame_botones_cot.pack(fill="x", pady=10)
         
-        Button(frame_botones_cot, text="Agregar", command="").pack(side="right", padx=5)
+        Button(frame_botones_cot, text="Agregar", command=self.agregarCotizacionView).pack(side="right", padx=5)
 
-        self.btnEditarCot = Button(frame_botones_cot, text="Editar", command="")
+        self.btnEditarCot = Button(frame_botones_cot, text="Editar", command=self.editarcotizacionesview)
         self.btnEditarCot.pack(side="right", padx=5)
         self.btnEditarCot.config(state=tk.DISABLED)
-#
+
+#---------------------------------- MATRIALES DERECHA--------------------------------
         frame_der = tk.Frame(frame_principal)
         frame_der.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
 
@@ -81,7 +96,7 @@ class CotizacionesMVC():
         columnas_mat = ("ID", "Material", "Descrip.", "Can.", "Prec", "Total")
         self.tabla_mat = ttk.Treeview(frame_tabla_mat, columns=columnas_mat, show="headings")
         
-        datos_mat = self.mostrarMaterialesController() 
+        datos_mat = ""
         
         for col in columnas_mat:
             self.tabla_mat.heading(col, text=col)
@@ -99,78 +114,132 @@ class CotizacionesMVC():
         frame_botones_mat.pack(fill="x", pady=10)
         
        
-        self.btnAgregarMat = Button(frame_botones_mat, text="Agregar", command=lambda: self.irAMaterialesMVC("agregar"))
+        self.btnAgregarMat = Button(frame_botones_mat, text="Agregar", command=lambda: self.irAMaterialesMVC(self.id_cot_seleccionado,"agregar",None))
         self.btnAgregarMat.pack(side="right", padx=5)
         self.btnAgregarMat.config(state=tk.DISABLED)
 
-        self.btnEditarMat = Button(frame_botones_mat, text="Editar", command=None)
+        self.btnEditarMat = Button(frame_botones_mat, text="Editar", command=lambda: self.irAMaterialesMVC(self.id_cot_seleccionado,"editar",self.id_mat_seleccionado))
         self.btnEditarMat.pack(side="right", padx=5)
         self.btnEditarMat.config(state=tk.DISABLED)
-    def agregarCotizacion(self):
+    def agregarCotizacionView(self):
         self.borrarPantalla()
         contenedor = tk.Frame(self.ventana)
         contenedor.pack(fill="both", expand=True)
         self.crearMenuSuperior(contenedor)
-
         # --- CONFIGURACIÓN DEL SCROLL ---
         canvas = tk.Canvas(contenedor)
         barra = tk.Scrollbar(contenedor, orient="vertical", command=canvas.yview)
-        
         frame_form = tk.Frame(canvas)
-        frame_form.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
+        frame_form.bind("<Configure>",lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=frame_form, anchor="nw")
         canvas.configure(yscrollcommand=barra.set)
 
         canvas.pack(side="left", fill="both", expand=True)
         barra.pack(side="right", fill="y")
         Label(frame_form, text="DATOS DE LA COTIZACIÓN", font=("Arial", 11, "bold")).pack(pady=5)
-        Label(frame_form, text="ingrese el nombre del cliente").pack(anchor="w", pady=2, padx=10)
-        self.nombre = Entry(frame_form, width=40)
-        self.nombre.focus()
-        self.nombre.pack(fill="x", pady=2, padx=10)
+        datos,idcl = self.consultarClientes()
+    
+        Label(frame_form, text="selecione cliente").pack(anchor="w", pady=2, padx=10)
+        self.idcliente = ttk.Combobox(frame_form, values=datos, state="readonly")
         
-        Label(frame_form, text="ingrese el telefono del cliente").pack(anchor="w", pady=2, padx=10)
-        self.telefono = Entry(frame_form, width=40)
-        self.telefono.pack(fill="x", pady=2, padx=10)
+        self.idcliente.pack(fill="x", pady=2, padx=10)
+
+        trabajadores,idTrabajadores =  self.consultartrabajadores()
         
-        Label(frame_form, text="ingrese el email del cliente").pack(anchor="w", pady=2, padx=10)
-        self.email = Entry(frame_form, width=40)
-        self.email.pack(fill="x", pady=2, padx=10)
+        self.revisado = ttk.Combobox(frame_form, values=trabajadores, state="readonly")
+        self.revisado.pack(fill="x", pady=2, padx=10)
         
-        Label(frame_form, text="calle:").pack(anchor="w", pady=2, padx=10)
-        self.calle = Entry(frame_form, width=40)
-        self.calle.pack(fill="x", pady=2, padx=10)
-        
-        Label(frame_form, text="numero").pack(anchor="w", pady=2, padx=10)
-        self.numero = Entry(frame_form, width=40)
-        self.numero.pack(fill="x", pady=2, padx=10)
-        
-        Label(frame_form, text="colonia").pack(anchor="w", pady=2, padx=10)
-        self.colonia = Entry(frame_form, width=40)
-        self.colonia.pack(fill="x", pady=2, padx=10)
-        
-        Label(frame_form, text="ingrese la RFC del cliente").pack(anchor="w", pady=2, padx=10)
-        self.rfc = Entry(frame_form, width=40)
-        self.rfc.pack(fill="x", pady=2, padx=10)       
-        
-        Label(frame_form, text="ingrese la fecha de registro del cliente").pack(anchor="w", pady=2, padx=10)
+        Label(frame_form, text="ingrese la fecha estimada de entrega").pack(anchor="w", pady=2, padx=10)
         self.registro = DateEntry(frame_form, selectmode='day')
         self.registro.pack(fill="x", pady=2, padx=10)
+
+        Label(frame_form, text="presupuesto del cliente").pack(anchor="w", pady=2, padx=10)
+        self.presupuesto = Entry(frame_form, width=40)
+        self.presupuesto.pack(fill="x", pady=2, padx=10)
         
-        Label(frame_form, text="ingrese el estatus del cliente").pack(anchor="w", pady=2, padx=10)
-        datos = ("activo", "inactivo")
-        self.estatus = ttk.Combobox(frame_form, values=datos, state="readonly")
-        self.estatus.pack(fill="x", pady=2, padx=10)
-        self.estatus.current(0)      
+        Label(frame_form, text="ingrese cuantos empleados necesita").pack(anchor="w", pady=2, padx=10)
+        self.numEmpleados = Entry(frame_form, width=40)
+        self.numEmpleados.pack(fill="x", pady=2, padx=10)
+
+        Label(frame_form, text="ingrese descripcion del proyecto:").pack(anchor="w", pady=2, padx=10)
+        self.descripcion = Entry(frame_form, width=40)
+        self.descripcion.pack(fill="x", pady=2, padx=10)
         
         frame_botones = tk.Frame(frame_form)
         frame_botones.pack(pady=15)
-        Button(frame_botones, text='agregar', command=self.ejecutarTodoIns).pack(side="left", padx=5)
-        Button(frame_botones, text='::Regresar::', command=self.mostrarClientesView).pack(side="left", padx=5)
+        Button(frame_botones, text='agregar', command=lambda: self.ejecutarTodoIns(datos,idcl,trabajadores,idTrabajadores)).pack(side="left", padx=5)
+        Button(frame_botones, text='::Regresar::', command=self.mostrarCotizacionesView).pack(side="left", padx=5)
+    def editarcotizacionesview(self):
+        self.borrarPantalla()
+        contenedor = tk.Frame(self.ventana)
+        contenedor.pack(fill="both", expand=True)
+        self.crearMenuSuperior(contenedor)
+        canvas = tk.Canvas(contenedor)
+        barra = tk.Scrollbar(contenedor, orient="vertical", command=canvas.yview)
+        frame_form = tk.Frame(canvas)
+        frame_form.bind("<Configure>",lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=frame_form, anchor="nw")
+        canvas.configure(yscrollcommand=barra.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        barra.pack(side="right", fill="y")
+
+        Label(frame_form, text="editar cotizacion", font=("Arial", 11, "bold")).pack(pady=5)
+        datos,idcl = self.consultarClientes()
+    
+        Label(frame_form, text="selecione cliente").pack(anchor="w", pady=2, padx=10)
+        self.idclienteAct = ttk.Combobox(frame_form, values=datos, state="readonly")
+        
+        self.idclienteAct.pack(fill="x", pady=2, padx=10)
+
+        trabajadores,idTrabajadores =  self.consultartrabajadores()
+        
+        self.revisadoAct = ttk.Combobox(frame_form, values=trabajadores, state="readonly")
+        self.revisadoAct.pack(fill="x", pady=2, padx=10)
+        Label(frame_form, text="ingrese la fecha estimada de entrega").pack(anchor="w", pady=2, padx=10)
+        """
+        self.registroAct = DateEntry(frame_form, selectmode='day')
+        self.registroAct.pack(fill="x", pady=2, padx=10)
+        """
+        self.registroAct = DateEntry(frame_form, selectmode='day')
+        self.registroAct.pack(fill="x", pady=2, padx=10)
+
+        Label(frame_form, text="presupuesto del cliente").pack(anchor="w", pady=2, padx=10)
+        self.presupuestoAct = Entry(frame_form, width=40)
+        self.presupuestoAct.pack(fill="x", pady=2, padx=10)
+        
+        Label(frame_form, text="ingrese cuantos empleados necesita").pack(anchor="w", pady=2, padx=10)
+        self.numEmpleadosAct = Entry(frame_form, width=40)
+        self.numEmpleadosAct.pack(fill="x", pady=2, padx=10)
+
+        Label(frame_form, text="ingrese descripcion del proyecto:").pack(anchor="w", pady=2, padx=10)
+        self.descripcionAct = Entry(frame_form, width=40)
+        self.descripcionAct.pack(fill="x", pady=2, padx=10)
+
+        frame_botones = tk.Frame(frame_form)
+        frame_botones.pack(pady=15)
+        Button(frame_botones, text='Borrar',state=DISABLED, command=None).pack(side="left", padx=5)
+        Button(frame_botones, text='Actualizar', command=lambda: self.ejecutarTodoAct(datos,idcl,trabajadores,idTrabajadores)).pack(side="left", padx=5)
+        Button(frame_botones, text='Regresar', command=self.mostrarCotizacionesView).pack(side="left", padx=5)
+        cotizacion1 = self.buscarcotizacionPorId(self.id_cot_seleccionado)
+
+        if cotizacion1:
+                    
+                    self.idclienteAct.set(cotizacion1[6])
+                    print(cotizacion1[6])
+                    self.revisadoAct.set(cotizacion1[3])
+        
+
+                    self.registroAct.set_date( cotizacion1[4])
+                    self.presupuestoAct.delete(0, "end")
+                    self.presupuestoAct.insert(0, cotizacion1[2])
+                    self.numEmpleadosAct.delete(0, "end")
+                    self.numEmpleadosAct.insert(0, cotizacion1[5])
+                    self.descripcionAct.delete(0, "end")
+                    self.descripcionAct.insert(0, cotizacion1[7])
+
+        #self.registroAct.set_date(trabajador[10])
+        
+
     def alSeleccionarCotizacion(self, event):
         seleccion = event.widget.selection()
         if seleccion:
@@ -190,13 +259,28 @@ class CotizacionesMVC():
             valores = event.widget.item(seleccion[0], "values")
             self.id_mat_seleccionado = valores[0]
             self.btnEditarMat.config(state="normal")
-
+    def respuesta_sql(self, respuesta):
+        if respuesta:
+            messagebox.showinfo(title="::EXITO::", message="Accion como yo ...exitosa")
+        else:
+            messagebox.showerror(title='VERIFIQUE ', message="Esta accion no pudo realizarse con exito")
     #controladores
+    def buscarcotizacionPorId (self,numCot):
+        print(numCot)
+        cotizacion = cotizacionbd.Cotizaciones.consultarCotId(numCot)
+        print(cotizacion)
+
+        dias = cotizacion[4]
+        fecha_estimada = date.today() + timedelta(days=dias)
+        
+        cotizacion_tupla = (cotizacion[0],cotizacion[1], cotizacion[2], cotizacion[3],fecha_estimada, cotizacion[5], cotizacion[6], cotizacion[7])
+        print (fecha_estimada)
+        return cotizacion_tupla
 
     def mostrarCotizacionesController (self):
         return cotizacionbd.Cotizaciones.consultarCot()
+    
     def buscarMaterialesPorId(self, id):
-        print("Buscando materiales para la cotización con ID:", id)
         materiales = materialesbd.Materiales.consultarId(id)
 
         if not materiales:
@@ -206,11 +290,73 @@ class CotizacionesMVC():
             precio_u = float(fila[4])
             cantidad = float(fila[5])
             total = precio_u * cantidad
-            fila_formateada = (fila[0], fila[1], fila[2], fila[5], fila[4], total,
-            )
+            fila_formateada = (fila[0], fila[1], fila[2], fila[5], fila[4], total,)
             materiales_con_total.append(fila_formateada)
+            print()
 
         return materiales_con_total
-    def mostrarMaterialesController(self):
-        pass
+
+
+    def consultarClientes (self):
+        datos =  cotizacionbd.Cotizaciones.consultarNombres()
+        clientes = []
+        ids = []
+        if not datos:
+            return ["sin valores"], []
+        for dato in datos:
+            clientes.append(f"{dato[0]} {dato[1]}")
+            ids.append(dato[0])
+        return clientes, ids
+    def consultartrabajadores (self):
+        datos = cotizacionbd.Cotizaciones.obtenerDatosTrab()
+        
+        trabajadores = []
+        ids = []
+        if not datos:
+            return ["sin valores"], []
+
+        for dato in datos:
+            nombres = f"{dato[0]} {dato[1]} {dato[2]}"
+            trabajadores.append(nombres)
+            ids.append(dato[0])
+        return trabajadores, ids
+    def agregarCotizacionController (self,datos,idcl,trabajadores,idTrabajadores):
+
+        for i in range(len(datos)):
+            if self.idcliente.get() == datos[i]:
+                id = idcl [i]
+
+                break
+        for i in range(len(trabajadores)):
+            if self.revisado.get() == trabajadores[i]:
+                rev = idTrabajadores[i]
+                break
+        fechaRegi = self.registro.get_date()
+        hoy = date.today()
+        tiempo = (fechaRegi - hoy).days
+        cotizacion1 = cotizacionbd.Cotizaciones(self.presupuesto.get(),"nuevo",rev,None,None, tiempo, self.numEmpleados.get(),id, self.descripcion.get() )
+        respuesta = cotizacion1.insertar()
+        self.respuesta_sql(respuesta)
+        del cotizacion1
+
+    def editarCotizacionController (self,datos,idcl,trabajadores,idTrabajadores):
+        fechaRegi = self.registroAct.get_date()
+        hoy = date.today()
+        tiempo = (fechaRegi - hoy).days
+        for i in range(len(datos)):
+            if self.idclienteAct.get() == datos[i]:
+                id = idcl [i]
+
+                break
+        for i in range(len(trabajadores)):
+            if self.revisadoAct.get() == trabajadores[i]:
+                rev = idTrabajadores[i]
+                break
+        
+        cotizacion1 = cotizacionbd.Cotizaciones(self.presupuestoAct.get(),"nuevo",rev,None,None,tiempo, self.numEmpleadosAct.get(),id, self.descripcionAct.get() )
+        respuesta = cotizacion1.actualizar(self.id_cot_seleccionado)
+        self.respuesta_sql(respuesta)
+        
+        del cotizacion1
+
 

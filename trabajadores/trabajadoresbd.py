@@ -128,4 +128,3 @@ class Trabajadores():
     @nombre.setter
     def nombre (self,nombre):
         self._nombre = nombre
-        

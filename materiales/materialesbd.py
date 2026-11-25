@@ -1,4 +1,5 @@
 from conexionbd import conexion,cursor
+from datetime import date, datetime, timedelta
 class Materiales():
     def __init__(self,nombre,descripcion, medida, precioU, cantidad, comprado,cotizacion):
         self._nombre = nombre
@@ -10,8 +11,8 @@ class Materiales():
         self._cotizacion = cotizacion
     def insertar(self):
         try:
-            sql = "INSERT INTO materiales VALUES (null, %s, %s, %s, %s, %s, %s, %s)"
-            valores = (self._nombre, self._descripcion, self._medida, self._precioU, self._cantidad, self._comprado, self._cotizacion)
+            sql = "INSERT INTO materiales VALUES (null, %s, %s, %s, %s, %s, %s, %s, %s)"
+            valores = (self._nombre, self._descripcion, self._medida, self._precioU, self._cantidad, self._comprado, self._cotizacion,)
             cursor.execute(sql, valores)
             conexion.commit()
             return True
@@ -29,8 +30,35 @@ class Materiales():
     @staticmethod
     def consultarId(id: int):
         try:
-            sql = "select id, nombre, descrpcion, medida, precioU, cantidad from materiales where id = %s"
+            sql = "select id, nombre, descrpcion, medida, precioU, cantidad comprado from materiales where cotizacion = %s"
             cursor.execute(sql, (id,))
+            return cursor.fetchall()
+        except:
+            return []
+    @staticmethod
+    def consultarCotId():
+        try:
+            sql = "select numCotizacion  from cotizaciones where estado = 'aceptado'"
+            cursor.execute(sql,)
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error detallado en SQL: {e}") 
+            return False
+    @staticmethod
+    def consultarPorID(id):
+        try:
+            sql = "select * from materiales where id = %s"
+            valores = (id,)
+            cursor.execute(sql, valores)
+            return cursor.fetchone()
+        except:
+            return []
+    @staticmethod
+    def matID(id):
+        try:
+            sql = "select id, nombre, descrpcion, medida, precioU, cantidad, comprado from materiales where cotizacion = %s"
+            valores = (id,)
+            cursor.execute(sql, valores)
             return cursor.fetchall()
         except:
             return []
@@ -47,8 +75,8 @@ class Materiales():
     def actualizar(self, id):
         try:
             
-            sql = "UPDATE materiales SET nombre = %s, descripcion = %s, medida = %s, precioU = %s, cantidad = %s, comprado = %s, 	cotizacion = %s, WHERE id = %s"
-            valores = (self._nombre, self._descripcion, self._medida, self._precioU, self._cantidad, self._comprado, self._cotizacion, id)
+            sql = "UPDATE materiales SET nombre = %s, descrpcion = %s, medida = %s, precioU = %s, cantidad = %s WHERE id = %s"
+            valores = (self._nombre, self._descripcion, self._medida, self._precioU, self._cantidad, id)
             cursor.execute(sql, valores)
             conexion.commit()
             return True
@@ -64,6 +92,65 @@ class Materiales():
         except Exception as e:
             print(f"Error al obtener datos: {e}")
             return []
+
+    @staticmethod
+    def marcarAceptada(num_cot: int):
+        try:
+            sql = """
+            UPDATE materiales
+            SET comprado = IF(comprado = 1, 0, 1)
+            WHERE id = %s
+            """
+            cursor.execute(sql, (num_cot,))
+            conexion.commit()
+            return True
+        except Exception as e:
+            conexion.rollback()
+            print("Error en alternarComprado:", e)
+            return False
+    @staticmethod
+    def cambiarAprobado (num_cot):
+
+        try:
+            sql_cot = """
+            UPDATE cotizaciones
+            SET estado = 'en proceso'
+            WHERE numCotizacion = %s
+            """
+            cursor.execute(sql_cot, (num_cot,))
+
+            sql_proyecto = """
+            INSERT INTO proyectos (
+                fechaInicio,
+                fechaFinal,
+                cometarios,
+                estatus,
+                ordenProyecto,
+                estatusCob,
+                fechaEntreg,
+                fechaPago,
+                totalPagar
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            valores_proyecto = (
+                date.today(),
+                "0000-00-00",
+                None,
+                "Por Empezar",
+                num_cot,
+                "sin pago",
+                "0000-00-00",
+                "0000-00-00",
+                0,
+            )
+            cursor.execute(sql_proyecto, valores_proyecto)
+
+            conexion.commit()
+            return True
+        except Exception as e:
+            conexion.rollback()
+            print(f"Error al actualizar: {e}")
+            return False
 
 
     #set y get`
