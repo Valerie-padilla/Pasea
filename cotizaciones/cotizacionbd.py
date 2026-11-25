@@ -147,12 +147,3 @@ class Cotizaciones():
     @trabajadores.setter
     def tiempo (self,trabajadores):
         self._trabajadores = trabajadores
-
-
-
-
-
-
-
-
-        

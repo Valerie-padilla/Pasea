@@ -253,7 +253,6 @@ class CotizacionesMVC():
             if materiales:
                 for mat in materiales:
                     self.tabla_mat.insert("", tk.END, values=mat)
-
     def alSeleccionarMaterial(self, event):
         seleccion = event.widget.selection()
         if seleccion:
